@@ -3,6 +3,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from urllib.parse import urlencode
+from delegated.src.graph_client import find_chat, get_messages, send_message
 
 load_dotenv()
 
@@ -13,11 +14,11 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 AUTHORIZE_URL = f"{AUTHORITY}/oauth2/v2.0/authorize"
 
-REDIRECT_URI = "http://localhost:8000/callback"
+REDIRECT_URI = "http://localhost:8000/auth/callback"
 
 TOKEN_URL = f"{AUTHORITY}/oauth2/v2.0/token"
 
-SCOPES = "User.Read offline_access"
+SCOPES = "User.Read Chat.ReadWrite ChatMessage.Send offline_access"
 
 app = FastAPI()
 
@@ -47,11 +48,14 @@ def login():
 #     }
 
 refresh_token_store = None
+access_token_store = None
 
-@app.get("/callback")
+
+@app.get("/auth/callback")
 def callback(code: str):
 
     global refresh_token_store
+    global access_token_store
 
     data = {
         "grant_type": "authorization_code",
@@ -75,33 +79,58 @@ def callback(code: str):
     print(token_response)
 
     # Get the access token
-    access_token = token_response['access_token']
+    access_token_store = token_response["access_token"]
+
+    print("GRANTED SCOPES:")
+    print(token_response.get("scope"))
 
     # Refresh Token
     refresh_token_store = token_response["refresh_token"]
 
-    # Call MS Graph
-    graph_url = "https://graph.microsoft.com/v1.0/me"
+    # # Get messages from one particular chat
+    # chat_id = "19:864bf157-ab10-43fe-839b-0422daeef2d6_edf83f23-cb9e-4a80-b44e-365ffa4f6d25@unq.gbl.spaces"
 
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
+    # Send message to the selected chat
 
-    graph_response = httpx.get(
-        graph_url,
-        headers= headers
+    return {
+    "message": "Login successful"
+}
+
+@app.get("/messages")
+def messages():
+
+    chat_id = find_chat(
+        access_token_store,
+        "Pragadheeswaran"
     )
 
-    graph_response.raise_for_status()
+    messages_data = get_messages(
+        access_token_store,
+        chat_id
+    )
 
-    # Return the graph response
-    user_data = graph_response.json()
+    return messages_data
 
-    print("Graph response:")
-    print(user_data)
 
-    return user_data
+@app.post("/send-message")
+def send_teams_message(message: str):
 
+    chat_id = find_chat(
+        access_token_store,
+        "Pragadheeswaran"
+    )
+
+    sent_message = send_message(
+        access_token_store,
+        chat_id,
+        message
+    )
+
+    return {
+        "message": "Message sent successfully",
+        "chat_id": chat_id,
+        "sent_message": sent_message
+    }
 
 @app.get("/refresh")
 def refresh():
