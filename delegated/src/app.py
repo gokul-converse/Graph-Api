@@ -3,13 +3,19 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from urllib.parse import urlencode
+from config.settings import settings
 from delegated.src.graph_client import find_chat, get_messages, send_message
+from delegated.src.agent import agent
 
 load_dotenv()
 
-TENANT_ID = os.getenv("TENANT_ID")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+# TENANT_ID = os.getenv("TENANT_ID")
+# CLIENT_ID = os.getenv("CLIENT_ID")
+# CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+
+TENANT_ID=settings.tenant_id
+CLIENT_ID=settings.client_id
+CLIENT_SECRET = settings.client_secret
 
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 AUTHORIZE_URL = f"{AUTHORITY}/oauth2/v2.0/authorize"
@@ -181,3 +187,13 @@ def refresh():
     print(user_data)
 
     return user_data
+
+
+@app.post("/agent")
+async def run_agent(message: str):
+
+    result = await agent.run(message)
+
+    return {
+        "response": result.text
+    }
