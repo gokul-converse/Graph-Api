@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 from config.settings import settings
 from delegated.src.graph_client import find_chat, get_messages, send_message
 from delegated.src.agent import agent
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -28,6 +30,13 @@ SCOPES = "User.Read Chat.ReadWrite ChatMessage.Send offline_access"
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/login")
 def login():
@@ -93,14 +102,26 @@ def callback(code: str):
     # Refresh Token
     refresh_token_store = token_response["refresh_token"]
 
+    print("LOGIN SUCCESSFUL")
+
     # # Get messages from one particular chat
     # chat_id = "19:864bf157-ab10-43fe-839b-0422daeef2d6_edf83f23-cb9e-4a80-b44e-365ffa4f6d25@unq.gbl.spaces"
 
     # Send message to the selected chat
 
+    return RedirectResponse(url="http://localhost:5173")
+
+@app.get("/auth/status")
+def auth_status():
+
+    if access_token_store:
+        return {
+            "authenticated": True
+        }
+
     return {
-    "message": "Login successful"
-}
+        "authenticated": False
+    }
 
 @app.get("/messages")
 def messages():

@@ -43,6 +43,18 @@ def find_chat(access_token, person_name):
 
         members = members_response.json()["value"]
 
+        print("\nCHAT MEMBERS:")
+
+        for member in members:
+            print(
+                "Display Name:",
+                member.get("displayName"),
+                "| User ID:",
+                member.get("userId"),
+                "| Email:",
+                member.get("email")
+            )
+
         for member in members:
 
             display_name = member.get("displayName", "")
