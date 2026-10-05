@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from urllib.parse import urlencode
 from config.settings import settings
 from delegated.src.graph_client import find_chat, get_messages, send_message
-from delegated.src.agent import agent
+from delegated.src.agent import agent, session
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -213,7 +213,7 @@ def refresh():
 @app.post("/agent")
 async def run_agent(message: str):
 
-    result = await agent.run(message)
+    result = await agent.run(message, session = session)
 
     return {
         "response": result.text

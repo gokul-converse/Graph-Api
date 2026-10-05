@@ -26,4 +26,7 @@ agent = Agent(
         get_messages_tool,
         send_message_tool,
     ],
+
 )
+
+session = agent.create_session()
