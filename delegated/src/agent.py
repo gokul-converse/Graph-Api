@@ -1,6 +1,8 @@
-from agent_framework import Agent
+from agent_framework import Agent, FileHistoryProvider
 from .tools import get_messages_tool, send_message_tool
 from config.settings import client
+
+history_provider = FileHistoryProvider(storage_path="history")
 
 agent = Agent(
     client=client,
@@ -26,7 +28,8 @@ agent = Agent(
         get_messages_tool,
         send_message_tool,
     ],
+    context_providers=[history_provider]
 
 )
 
-session = agent.create_session()
+# session = agent.create_session()

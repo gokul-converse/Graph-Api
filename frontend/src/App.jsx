@@ -14,6 +14,18 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [sessionId, setSessionId] = useState(() => {
+  const savedSessionId = localStorage.getItem("session_id");
+
+  if (savedSessionId) {
+    return savedSessionId;
+  }
+
+  const newSessionId = crypto.randomUUID();
+  localStorage.setItem("session_id", newSessionId);
+
+  return newSessionId;
+});
 
   // =========================
   // Chat state
@@ -43,6 +55,37 @@ function App() {
 
     checkAuth();
   }, []);
+
+
+  useEffect(() => {
+  const loadHistory = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/agent/history/${sessionId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load conversation history");
+      }
+
+      const data = await response.json();
+
+      const restoredMessages = data.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      setMessages(restoredMessages);
+
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+    }
+  };
+
+  if (authenticated && sessionId) {
+    loadHistory();
+  }
+}, [authenticated, sessionId]);
 
   // =========================
   // Login
@@ -76,6 +119,17 @@ function App() {
     }
   };
 
+  const newChat = () => {
+  const newSessionId = crypto.randomUUID();
+
+  localStorage.setItem("session_id", newSessionId);
+
+  setSessionId(newSessionId);
+  setMessages([]);
+  setMessage("");
+  setError(null);
+};
+
   // =========================
   // Send message to Agent
   // =========================
@@ -104,9 +158,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/agent?message=${encodeURIComponent(
-          userMessage
-        )}`,
+        `http://localhost:8000/agent?message=${encodeURIComponent(userMessage)}&session_id=${encodeURIComponent(sessionId)}`,
         {
           method: "POST",
         }
@@ -197,6 +249,15 @@ function App() {
                 <div className="w-2.5 h-2.5 bg-green-400 rounded-full"></div>
                 <span className="text-sm text-slate-300">Teams Assistant</span>
               </div>
+
+              {/* New Chat */}
+            <button
+              onClick={newChat}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-2 rounded-lg transition-all"
+            >
+              <MessageSquare className="w-4 h-4" />
+              New Chat
+            </button>
 
               {/* =========================
                   Messages

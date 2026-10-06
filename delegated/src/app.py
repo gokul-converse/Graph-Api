@@ -5,7 +5,10 @@ from fastapi import FastAPI
 from urllib.parse import urlencode
 from config.settings import settings
 from delegated.src.graph_client import find_chat, get_messages, send_message
-from delegated.src.agent import agent, session
+# from delegated.src.agent import agent
+# from delegated.src.auth_state import refresh_token_store, access_token_store
+from delegated.src.agent import agent, history_provider
+from . import auth_state
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -62,15 +65,15 @@ def login():
 #         "authorization_code": code
 #     }
 
-refresh_token_store = None
-access_token_store = None
+# refresh_token_store = None
+# access_token_store = None
 
 
 @app.get("/auth/callback")
 def callback(code: str):
 
-    global refresh_token_store
-    global access_token_store
+    # global refresh_token_store
+    # global access_token_store
 
     data = {
         "grant_type": "authorization_code",
@@ -94,13 +97,15 @@ def callback(code: str):
     print(token_response)
 
     # Get the access token
-    access_token_store = token_response["access_token"]
+    # access_token_store = token_response["access_token"]
+    auth_state.access_token_store = token_response["access_token"]
 
     print("GRANTED SCOPES:")
     print(token_response.get("scope"))
 
     # Refresh Token
-    refresh_token_store = token_response["refresh_token"]
+    # refresh_token_store = token_response["refresh_token"]
+    auth_state.refresh_token_store = token_response["refresh_token"]
 
     print("LOGIN SUCCESSFUL")
 
@@ -114,7 +119,7 @@ def callback(code: str):
 @app.get("/auth/status")
 def auth_status():
 
-    if access_token_store:
+    if auth_state.access_token_store:
         return {
             "authenticated": True
         }
@@ -127,12 +132,12 @@ def auth_status():
 def messages():
 
     chat_id = find_chat(
-        access_token_store,
+        auth_state.access_token_store,
         "Pragadheeswaran"
     )
 
     messages_data = get_messages(
-        access_token_store,
+        auth_state.access_token_store,
         chat_id
     )
 
@@ -143,12 +148,12 @@ def messages():
 def send_teams_message(message: str):
 
     chat_id = find_chat(
-        access_token_store,
+        auth_state.access_token_store,
         "Pragadheeswaran"
     )
 
     sent_message = send_message(
-        access_token_store,
+        auth_state.access_token_store,
         chat_id,
         message
     )
@@ -162,7 +167,7 @@ def send_teams_message(message: str):
 @app.get("/refresh")
 def refresh():
 
-    if not refresh_token_store:
+    if not auth_state.refresh_token_store:
         return {
             "error": "No refresh token available. Login first."
         }
@@ -171,7 +176,7 @@ def refresh():
         "grant_type": "refresh_token",
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
-        "refresh_token": refresh_token_store,
+        "refresh_token": auth_state.refresh_token_store,
         "scope": SCOPES,
     }
 
@@ -210,11 +215,40 @@ def refresh():
     return user_data
 
 
-@app.post("/agent")
-async def run_agent(message: str):
+# @app.post("/agent")
+# async def run_agent(message: str):
 
-    result = await agent.run(message, session = session)
+#     result = await agent.run(message, session = session)
+
+#     return {
+#         "response": result.text
+#     }
+
+
+@app.post("/agent")
+async def run_agent(message: str, session_id: str):
+
+    session = agent.create_session(session_id=session_id)
+
+    result = await agent.run(message, session=session)
 
     return {
-        "response": result.text
+        "response": result.text,
+        "session_id": session.session_id
+    }
+
+@app.get("/agent/history/{session_id}")
+async def get_agent_history(session_id: str):
+
+    messages = await history_provider.get_messages(session_id)
+
+    return {
+        "session_id": session_id,
+        "messages": [
+            {
+                "role": message.role,
+                "content": message.text
+            }
+            for message in messages
+        ]
     }
