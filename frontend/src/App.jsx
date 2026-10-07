@@ -15,7 +15,7 @@ function App() {
   const [error, setError] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
-  const savedSessionId = localStorage.getItem("session_id");
+    const savedSessionId = localStorage.getItem("session_id");
 
   if (savedSessionId) {
     return savedSessionId;
@@ -26,6 +26,9 @@ function App() {
 
   return newSessionId;
 });
+  const [conversations, setConversations] = useState([]);
+
+  console.log("Conversations:", conversations);
 
   // =========================
   // Chat state
@@ -88,6 +91,32 @@ function App() {
 }, [authenticated, sessionId]);
 
   // =========================
+  // Load conversation history
+  useEffect(() => {
+  const loadConversations = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:8000/conversations"
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load conversations");
+      }
+
+      const data = await response.json();
+
+      setConversations(data.conversations);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+      
+    }
+  };
+
+  if (authenticated) {
+    loadConversations();
+  }
+}, [authenticated]);
+  // =========================
   // Login
   // =========================
   const login = async () => {
@@ -125,6 +154,17 @@ function App() {
   localStorage.setItem("session_id", newSessionId);
 
   setSessionId(newSessionId);
+  setMessages([]);
+  setMessage("");
+  setError(null);
+};
+
+const selectConversation = async (conversation) => {
+  const selectedSessionId = conversation.session_id;
+
+  localStorage.setItem("session_id", selectedSessionId);
+
+  setSessionId(selectedSessionId);
   setMessages([]);
   setMessage("");
   setError(null);
@@ -205,7 +245,6 @@ function App() {
       sendMessage();
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <div className={`w-full ${authenticated ? "max-w-2xl" : "max-w-sm"}`}>
@@ -243,93 +282,122 @@ function App() {
               AUTHENTICATED → CHAT
           ================================================= */}
           {authenticated ? (
-            <div>
-              {/* Chat status */}
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-2.5 h-2.5 bg-green-400 rounded-full"></div>
-                <span className="text-sm text-slate-300">Teams Assistant</span>
-              </div>
-
-              {/* New Chat */}
-            <button
-              onClick={newChat}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-2 rounded-lg transition-all"
-            >
-              <MessageSquare className="w-4 h-4" />
-              New Chat
-            </button>
-
+            <div className="flex gap-4">
               {/* =========================
-                  Messages
+                  SIDEBAR
               ========================= */}
-              <div className="h-96 overflow-y-auto space-y-3 mb-5 pr-2">
-                {messages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageSquare className="w-10 h-10 text-slate-600 mb-3" />
-                    <p className="text-slate-400 text-sm">
-                      Ask me something about your Teams chats.
-                    </p>
-                    <p className="text-slate-600 text-xs mt-2">
-                      Example: Get the latest messages from Pragadheeswaran
-                    </p>
-                  </div>
-                )}
+              <div className="w-56 bg-slate-900/70 rounded-xl p-3 shrink-0">
+                {/* New Chat */}
+                <button
+                  onClick={newChat}
+                  className="w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-2 rounded-lg transition-all mb-3"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  New Chat
+                </button>
 
-                {messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${
-                      msg.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
-                        msg.role === "user"
-                          ? "bg-indigo-600 text-white rounded-br-md"
-                          : "bg-slate-700 text-slate-200 rounded-bl-md"
+                {/* Conversations */}
+                <div className="space-y-1">
+                  {conversations.map((conversation) => (
+                    <button
+                      key={conversation.session_id}
+                      onClick={() => selectConversation(conversation)}
+                      className={`w-full text-left text-sm px-3 py-2 rounded-lg truncate ${
+                        conversation.session_id === sessionId
+                          ? "bg-slate-700 text-white"
+                          : "text-slate-300 hover:bg-slate-700"
                       }`}
                     >
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Agent loading */}
-                {sending && (
-                  <div className="flex justify-start">
-                    <div className="bg-slate-700 text-slate-300 px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-2 text-sm">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Thinking...
-                    </div>
-                  </div>
-                )}
+                      {conversation.title}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* =========================
-                  Input
+                  CHAT AREA
               ========================= */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask something about Teams..."
-                  disabled={sending}
-                  className="flex-1 bg-slate-700/70 border border-slate-600 text-white placeholder-slate-500 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
-                />
+              <div className="flex-1 min-w-0">
+                {/* Chat status */}
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-2.5 h-2.5 bg-green-400 rounded-full"></div>
+                  <span className="text-sm text-slate-300">
+                    Teams Assistant
+                  </span>
+                </div>
 
-                <button
-                  onClick={sendMessage}
-                  disabled={sending || !message.trim()}
-                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl transition-all"
-                >
-                  {sending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
+                {/* =========================
+                    Messages
+                ========================= */}
+                <div className="h-96 overflow-y-auto space-y-3 mb-5 pr-2">
+                  {messages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <MessageSquare className="w-10 h-10 text-slate-600 mb-3" />
+                      <p className="text-slate-400 text-sm">
+                        Ask me something about your Teams chats.
+                      </p>
+                      <p className="text-slate-600 text-xs mt-2">
+                        Example: Get the latest messages from Pragadheeswaran
+                      </p>
+                    </div>
                   )}
-                </button>
+
+                  {messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`flex ${
+                        msg.role === "user" ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+                          msg.role === "user"
+                            ? "bg-indigo-600 text-white rounded-br-md"
+                            : "bg-slate-700 text-slate-200 rounded-bl-md"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Agent loading */}
+                  {sending && (
+                    <div className="flex justify-start">
+                      <div className="bg-slate-700 text-slate-300 px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-2 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Thinking...
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* =========================
+                    Input
+                ========================= */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask something about Teams..."
+                    disabled={sending}
+                    className="flex-1 bg-slate-700/70 border border-slate-600 text-white placeholder-slate-500 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
+                  />
+
+                  <button
+                    onClick={sendMessage}
+                    disabled={sending || !message.trim()}
+                    className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl transition-all"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

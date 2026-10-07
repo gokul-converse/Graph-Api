@@ -10,3 +10,7 @@ wheels/
 .venv
 .env
 token_cache.bin
+
+
+history/
+conversation_registry.json

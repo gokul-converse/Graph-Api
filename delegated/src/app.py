@@ -11,6 +11,7 @@ from delegated.src.agent import agent, history_provider
 from . import auth_state
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from delegated.src.conversation_registry import create_conversation, get_conversations
 
 load_dotenv()
 
@@ -228,6 +229,11 @@ def refresh():
 @app.post("/agent")
 async def run_agent(message: str, session_id: str):
 
+    create_conversation(
+        session_id=session_id,
+        title=message
+    )
+
     session = agent.create_session(session_id=session_id)
 
     result = await agent.run(message, session=session)
@@ -251,4 +257,14 @@ async def get_agent_history(session_id: str):
             }
             for message in messages
         ]
+    }
+
+
+@app.get("/conversations")
+async def list_conversations():
+
+    conversations = get_conversations()
+
+    return {
+        "conversations": conversations
     }
